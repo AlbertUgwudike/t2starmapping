@@ -4,16 +4,16 @@
 
 -   Install dependencies requirements.txt
 -   Store raw 3D Muliti-echo GRE data as follows:
-    &emsp;Data/\
+    Data/\
     &emsp;+---invivo/\
-    &emsp;+---p01/\
-    &emsp;| +---f01/\
-    &emsp;| | +---image.cfl\
-    &emsp;| | +---image.hdr\
-    &emsp;| +---f02/\
-    &emsp;| ...\
-    &emsp;+---p02/\
-    ...\
+    &emsp;&emsp;+---p01/\
+    &emsp;&emsp;| &emsp;+---f01/\
+    &emsp;&emsp;| &emsp;| &emsp;+---image.cfl\
+    &emsp;&emsp;| &emsp;| &emsp;+---image.hdr\
+    &emsp;&emsp;| &emsp;+---f02/\
+    &emsp;&emsp;| &emsp;...\
+    &emsp;&emsp;+---p02/\
+    &emsp;&emsp;...\
 
 ## Field Estimator Demos
 
