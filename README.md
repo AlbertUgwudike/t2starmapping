@@ -1,19 +1,19 @@
-# Python Code
+# MSc Individual Project
 
 ## Setup
 
 -   Install dependencies requirements.txt
 -   Store raw 3D Muliti-echo GRE data as follows:
-    $emsp;Data/\n
-    $emsp;+---invivo/\n
-    $emsp;+---p01/\n
-    $emsp;| +---f01/\n
-    $emsp;| | +---image.cfl\n
-    $emsp;| | +---image.hdr\n
-    $emsp;| +---f02/\n
-    $emsp;| ...\n
-    $emsp;+---p02/\n
-    ...\n
+    &emsp;Data/\
+    &emsp;+---invivo/\
+    &emsp;+---p01/\
+    &emsp;| +---f01/\
+    &emsp;| | +---image.cfl\
+    &emsp;| | +---image.hdr\
+    &emsp;| +---f02/\
+    &emsp;| ...\
+    &emsp;+---p02/\
+    ...\
 
 ## Field Estimator Demos
 
