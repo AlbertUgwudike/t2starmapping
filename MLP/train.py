@@ -5,12 +5,11 @@ import pandas as pd
 
 from .model import MLP
 from .demo import demo_mlp
-from Data.DataLoader import B0_Voxels
-from Simulator.pt_simulator import pt_signal
+from Data.DataLoader import Voxel_Cube
 
 def train():
 
-    dataset = B0_Voxels(1000)
+    dataset = Voxel_Cube(1000)
     data_loader = DataLoader(dataset, batch_size=50, shuffle=True)
 
     cuda_available = torch.cuda.is_available()

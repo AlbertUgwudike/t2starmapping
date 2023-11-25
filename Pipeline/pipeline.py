@@ -33,8 +33,11 @@ def run_pipelines(pipelines, vol):
     reconstruct = lambda param_map: simulate_volume(param_map, delta_omega, initial_phase)
     reconstructions = fmap(reconstruct, param_maps)
 
-    RMSE = lambda recon: (recon - vol).pow(2).mean(1).sqrt()
+    RMSE = lambda recon: (recon - vol).abs().pow(2).mean().sqrt()
     diffs = fmap(RMSE, reconstructions)
+
+    # print(fmap(lambda recon: (recon - vol).abs().pow(2).std(), reconstructions))
+    # print(fmap(lambda recon: (recon - vol).abs().pow(2).mean(), reconstructions))
 
     return param_maps, durations, reconstructions, diffs
     

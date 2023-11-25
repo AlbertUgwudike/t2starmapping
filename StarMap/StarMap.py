@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-from functools import reduce
 
 class StarMap(nn.Module):
 
@@ -36,7 +35,9 @@ def sub_model(first = 10, middle = 5, last = 1):
                 nn.ReLU()
             )
         ),
-        nn.Conv3d(16 + last, last, 1, padding="same")
+        nn.Conv3d(16 + last, last, 1, padding="same"),
+        nn.BatchNorm3d(last),
+        nn.ReLU()
     )
 
 class SkipConnection(nn.Module):

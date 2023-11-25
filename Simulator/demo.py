@@ -10,10 +10,11 @@ import numpy as np
 from interpol import resize
 
 from utility import pt_irange, hide_ticks
-from .numerical_simulator import numerical_simulator, polynomial_interpolator
-from .analytic_simulator import sinc_3d, sobel3D, differentiate_3d
+from .numerical_simulator import numerical_simulator, polynomial_interpolator, numerical_simulator2
+from .analytic_simulator import sinc_3d, sobel3D, differentiate_3d, simulate_volume
 from Data.DataLoader import Voxel_Cube
-from utility import NLLS
+from utility import fmap, arlo, NLLS
+from FieldEstimator.field_estimator import estimate_delta_omega
 
 
 def simulator_speeds():
@@ -86,34 +87,38 @@ def analytic_vs_numerical():
 
 def residuals_of_interpolations():
 
-    dfs = list(map(lambda n: pd.read_csv(f"./Charts/data/Degree_{n}_Residuals.csv"), [1, 2, 3, 4, 5]))
+    dir = "../data/simulation_residuals/"
+
+    dfs = list(map(lambda n: pd.read_csv(dir + f"Degree_{n}_Residuals.csv"), [1, 2, 3, 4, 5]))
     comb = reduce(lambda a, b: pd.DataFrame(data=pd.concat((a["Residuals"], b["Residuals"]), axis=1)), dfs)
     mdf = pd.DataFrame(data = comb.iloc[:, :].values, columns=[f"Degree_{i}" for i in range(1, 6)])
     mdf = mdf[(mdf >= 0).all(axis=1)]
-    simulated_data = -np.log(mdf.values)
+    simulated_data = (mdf.values)
 
-    dir = "../data/simulation_residuals/"
-    analytic_data = -np.log(pd.read_csv(dir + "Analytic_Residuals.csv").values[:, 1])
-    analytic_data_ = -np.log(pd.read_csv(dir + "Analytic_Residuals_.csv").values[:, 1])
+    analytic_data = (pd.read_csv(dir + "Analytic_Residuals.csv").values[:, 1])
+    bogus = (pd.read_csv(dir + "Bogus_Residuals.csv").values[:, 1])
 
     data = np.hstack((
         np.expand_dims(analytic_data, 1), 
         simulated_data,
-        #np.expand_dims(analytic_data_, 1), 
+        np.expand_dims(bogus, 1), 
     ))
+
+    print(data.mean(0))
+    exit()
     
     # data pass normaility test
     results = normaltest(data)
-    print(results.pvalue)
+    print("normality: ", results.pvalue)
     # pvalue=array([1.55219236e-06 7.42237316e-05 9.15372330e-04 2.28935383e-04 4.07175085e-07 4.16039727e-07])
 
-    t_tests = list(map(lambda n: CompareMeans(DescrStatsW(data[:, 0]), DescrStatsW(data[:, n])).ztest_ind()[1], [1, 2, 3, 4, 5]))
-    print(t_tests)
+    t_tests = list(map(lambda n: CompareMeans(DescrStatsW(data[:, 0]), DescrStatsW(data[:, n])).ztest_ind()[1], [1, 2, 3, 4, 5, 6]))
+    print("t_tests: ", t_tests)
 
     _, (ax, ax2) = plt.subplots(2, 1, sharex=True, gridspec_kw={ "height_ratios": [20,1] })
 
     params = dict(
-        x=np.arange(6), height=data.mean(0), yerr=data.std(0), 
+        x=np.arange(7), height=data.mean(0), yerr=data.std(0), 
         align='center', color='k', ecolor='k', capsize=10, width=0.5
     )
 
@@ -160,35 +165,40 @@ def residuals_of_interpolations():
     plt.show()
 
 def single_voxel_vsf():
-
     n_t = 100
-    t  = pt_irange(0.005, 0.04, n_t)
+    t  = pt_irange(0, 0.04, n_t)
     vol_t = t.reshape(1, n_t, 1, 1, 1).repeat(1, 1, 3, 3, 3)
     
-    delta_omega = 10 * Voxel_Cube(1000)[800][1].unsqueeze(0).unsqueeze(0)
-    
-    grads = differentiate_3d(delta_omega)
-    analytic_vsf = sinc_3d(delta_omega, *grads, vol_t)
+    delta_omega = Voxel_Cube(1000)[550][1].unsqueeze(0).unsqueeze(0)
+    delta_omegas = fmap(lambda n : n * delta_omega, [0, 20, 60])
 
-    simulate_vsf = numerical_simulator(delta_omega_env=delta_omega, interpolator=polynomial_interpolator(1), t=t)
+    sim_vsf = lambda om: numerical_simulator(
+        R2_star = torch.tensor([50]),
+        delta_omega_env=om, 
+        interpolator=polynomial_interpolator(1), 
+        t=t
+    )
+
+    vsfs = fmap(sim_vsf, delta_omegas)
+
+    R2_stars = fmap(lambda vsf: arlo(vsf.reshape(1, n_t, 1, 1, 1).abs(), vol_t[:, :, 1:2, 1:2, 1:2], n_t, 2)[:, 1:2, :, :, :], vsfs)
 
     _, ax = plt.subplots()
     ax.set_ylim(0, 1)
     ax.set_ylabel("MR Signal (Arbitrary Units)")
     ax.set_xlabel("Time (s)")
-    ax.plot(t, simulate_vsf[0, :].abs(), c="blue", label="Simulated")
 
-    # _, ax = plt.subplots(1, 3)
+    a, = ax.plot(t, vsfs[0][0, :].abs(), "k-")
+    b, = ax.plot(t, vsfs[1][0, :].abs(), color="orange")
+    c, = ax.plot(t, vsfs[2][0, :].abs(), color="red")
 
-    # for i, f in enumerate([torch.abs, torch.real, torch.imag]):
-    #     ax[i].set_ylim(0, 1)
-    #     ax[i].set_ylabel("MR Signal (Arbitrary Units)")
-    #     ax[i].set_xlabel("Time (s)")
+    ax.axhline(1/torch.e, color="gray", linestyle="--")
 
-    #     # ax[i].plot(t, f(analytic_vsf[0, :, 1, 1, 1]), c="black", label="Analytic")
-    #     ax[i].plot(t, f(simulate_vsf[0, :]), c="blue", label="Simulated")
+    ax.plot(t, torch.exp(-R2_stars[0].flatten() * t), color="black", linestyle="dotted")
+    ax.plot(t, torch.exp(-R2_stars[1].flatten() * t), color="orange", linestyle="dotted")
+    ax.plot(t, torch.exp(-R2_stars[2].flatten() * t), color="red", linestyle="dotted")
 
-    plt.legend()
+    plt.legend([a,b, c], ["Homogenous Field", "Mild Inhomogeneity", "Significant Inhomogeneity"])
     plt.show()
 
 def compare_interpolations():
@@ -226,4 +236,123 @@ def compare_interpolations():
     
     plt.show()
 
+def interpolation_demo():
+    
+    delta_omega = Voxel_Cube(1000)[550][1].unsqueeze(0).unsqueeze(0)
+    r = 20
+    opt = dict(shape=[3*r, 3*r, 3*r], anchor='edges', bound='repeat', interpolation=1)
+    intravoxel = resize(delta_omega, **opt)
 
+    grads = differentiate_3d(delta_omega)
+
+    _, axs = plt.subplots(4, 3)
+
+    for i in range(3):
+        axs[0][i].imshow(delta_omega[0, 0, i, :, :] - delta_omega.mean(), vmin=-20, vmax=25)
+        # axs[1][i].imshow(intravoxel[0, 0, 10 + 20 * i, :, :] - intravoxel.mean(), vmin=-20, vmax=25)
+        axs[1][i].imshow(grads[0][0, 0, i, :, :])
+        axs[2][i].imshow(grads[1][0, 0, i, :, :])
+        axs[3][i].imshow(grads[2][0, 0, i, :, :])
+
+
+        rect = Rectangle((r, r), width=r, height=r, edgecolor="red", facecolor="none")
+        axs[1][i].add_patch(rect)
+        
+        hide_ticks(axs[0][i])
+        hide_ticks(axs[1][i])
+        hide_ticks(axs[3][i])
+        hide_ticks(axs[2][i])
+
+    plt.show()
+
+def vsf_comparison():
+    n_t = 8
+    t  = pt_irange(0.005, 0.04, n_t)
+    
+    cube, _ = Voxel_Cube(1000)[250]
+
+    delta_omega, init_phase = estimate_delta_omega(cube.unsqueeze(0))
+
+    sim_vsf = numerical_simulator(
+        R2_star = torch.tensor([0]),
+        delta_omega_env=delta_omega, 
+        interpolator=polynomial_interpolator(1), 
+        t=t
+    )
+
+    vsf_param_map = torch.cat((torch.ones(1, 1, 3, 3, 3), torch.zeros(1, 1, 3, 3, 3)), 1)
+    ana_vsf = simulate_volume(vsf_param_map, delta_omega, init_phase)
+
+    sim_corrected = cube[:, 1, 1, 1] / sim_vsf[0, :]
+    # sim_corrected /= sim_corrected[0].abs()
+
+    ana_corrected = cube[:, 1, 1, 1] / ana_vsf[0, :, 1, 1, 1]
+    # ana_corrected /= ana_corrected[0].abs()
+
+    uncorrected = cube[:, 1, 1, 1] # / cube[0, 1, 1, 1]
+
+    # print(ana_corrected)
+    # print(sim_corrected)
+
+    M0, R2 = NLLS(ana_corrected.abs(), t)
+    reconstruction = M0 * (-R2 * t).exp() * ana_vsf[0, :, 1, 1, 1].abs()
+    print((reconstruction - uncorrected).abs().pow(2).mean().sqrt())
+
+    M0, R2 = NLLS(sim_corrected.abs(), t)
+    reconstruction = M0 * (-R2 * t).exp() * sim_vsf[0, :].abs()
+    print((reconstruction - uncorrected).abs().pow(2).mean().sqrt())
+
+    M0, R2 = NLLS(uncorrected.abs(), t)
+    reconstruction = M0 * (-R2 * t).exp()
+    print((reconstruction - uncorrected).abs().pow(2).mean().sqrt())
+
+    exit()
+
+    original_sig = cube[:, 1, 1, 1]
+    recon_with_correction = M0 * (-R2 * t_).exp() * sim_vsf_
+    recon_without_correction = M0_ * (-R2_ * t).exp()
+
+    plt.plot(t, original_sig.imag, label="original")
+    plt.plot(t_, recon_with_correction.real.flatten(), label="corrected")
+    plt.plot(t, recon_without_correction, label="uncorrected")
+    # plt.plot(t_, recon_with_correction.abs().flatten(), label="corrected")
+    # plt.plot(t, recon_without_correction, label="uncorrected")
+    # plt.plot(pt_irange(0.005, 0.04, 8), cube[:, 1, 1, 1].abs())
+    #plt.plot(pt_irange(0.005, 0.04, 8), cube_corr[:, 1, 1, 1].abs())
+
+    plt.legend()
+    plt.show()
+
+
+def numerical_comparison():
+    
+    t  = pt_irange(0.005, 0.04, 1000)
+    
+    cube, _ = Voxel_Cube(1000)[500]
+
+    delta_omega, init_phase = estimate_delta_omega(cube.unsqueeze(0))
+
+    R2 = 200
+    B0_fac = 100
+
+    original = numerical_simulator(
+        R2_star = torch.tensor([R2]),
+        delta_omega_env=B0_fac * delta_omega, 
+        interpolator=polynomial_interpolator(1), 
+        t=t,
+        n_isochromats=512000
+    )
+
+    new = numerical_simulator2(
+        R2_star = torch.tensor([R2]),
+        delta_omega_env=B0_fac * delta_omega, 
+        interpolator=polynomial_interpolator(1), 
+        t=t,
+        n_isochromats=512000
+    )
+
+    plt.plot(t, original.abs().squeeze(), label="old")
+    plt.plot(t, new.abs().squeeze(), label="new")
+    plt.legend()
+    plt.show()
+    print((original - new).mean())

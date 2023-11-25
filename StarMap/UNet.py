@@ -50,20 +50,4 @@ class SkipConnection(nn.Module):
         # dy = (X.shape[3] - X_out.shape[3]) // 2
         return torch.cat((X, X_out), 1)
     
-    # 3, 1
-
-    # 6, 2
-    # 8, 4
-
-    # 16, 8
-    # 18, 10
-
-    # 36, 20
-    # 38, 22
-
-    # 76, 44
-    # 78, 46
-
-    # 156, 92
-    # 158, 94
-    
+        

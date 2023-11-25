@@ -40,3 +40,25 @@ def numerical_simulator(
 
     # T2* decay including B0
     return (M0 * FID.T * F.T).T
+
+
+def numerical_simulator2(
+        delta_omega_env = 50 * torch.arange(3**3).reshape(1, 3, 3, 3), 
+        interpolator = polynomial_interpolator(1),
+        M0 = torch.tensor([1]), 
+        R2_star = torch.tensor([0]), 
+        t = pt_irange(0.005, 0.04, 8),
+        n_isochromats = 8_000,
+    ):
+
+    # simulate cauchy-defined exponential decay
+    cauchy_offres = torch.distributions.Cauchy(torch.tensor(0.0), R2_star).rsample((n_isochromats,))
+
+    # simulate B0_inhomogeneity effects
+    offres = interpolator(delta_omega_env, n_isochromats)
+
+    print(cauchy_offres.shape, offres.shape)
+    F = torch.einsum('ij, k -> ijk', offres + cauchy_offres, 1j * t).exp().mean(0)
+
+    # T2* decay including B0
+    return (M0 * F.T).T

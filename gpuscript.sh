@@ -7,4 +7,4 @@ source venv/bin/activate
 TERM=vt100 # or TERM=xterm
 /usr/bin/nvidia-smi
 uptime
-python3 -m UNET train
+python3 -m StarMap train

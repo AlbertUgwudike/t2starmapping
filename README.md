@@ -1,42 +1,23 @@
-# MSc Individual Project
+# Python Code
 
 ## Setup
 
--   Install dependencies requirements.txt
--   Store raw 3D Muliti-echo GRE data as follows:
-    Data/\
-    &emsp;+---invivo/\
-    &emsp;&emsp;+---p01/\
-    &emsp;&emsp;| &emsp;+---f01/\
-    &emsp;&emsp;| &emsp;| &emsp;+---image.cfl\
-    &emsp;&emsp;| &emsp;| &emsp;+---image.hdr\
-    &emsp;&emsp;| &emsp;+---f02/\
-    &emsp;&emsp;| &emsp;...\
-    &emsp;&emsp;+---p02/\
-    &emsp;&emsp;...\
+-   Ensure t2starmapping/python/ is the working directory
+-   Install dependencies in t2starmapping/python/requirements.txt
 
-## Field Estimator Demos
+## Generating training data for MLP
 
--   $ python3 -m FieldEstimator phase_fitting_demo
--   $ python3 -m FieldEstimator delat_omega_maps
--   $ python3 -m FieldEstimator B0_hist
+-   $ python3 -m Simulator mlp
+-   Modify t2starmapping/python/Simulator/training_data.py to adjust n_samples
 
-## Simulator Demos
+## Training the MLP
 
--   $ python3 -m Simulator analytic_vs_numerical
--   $ python3 -m Simulator generate_analytic_residuals
--   $ python3 -m Simulator generate_numerical_residuals
--   $ python3 -m Simulator single_voxel_vsf
--   $ python3 -m Simulator compare_interpolations
+-   You may use the step above to generate training data, or...
+-   Use the 65536 samples already generated in t2starmapping/python/data/
+-   $ python3 -m MLP train
+-   You will observe the charactersitics of the MLP every 25 epochs
 
-## StarMap Demos
+## Demo the MLP and simulator
 
--   $ python3 -m StarMap pixel_demo
--   $ python3 -m StarMap loss_curve
-
-## Pipeline demos (Integration of above algorithms)
-
--   $ python3 -m Pipeline reconstructions
--   $ python3 -m Pipeline pixel_reconstructions
--   $ python3 -m Pipeline speed_and_residuals
--   $ python3 -m Pipeline param_map_demo
+-   $ python3 -m Simulator demo
+-   $ python3 -m MLP demo

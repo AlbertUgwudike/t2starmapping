@@ -6,7 +6,7 @@ import json
 import os
 import matplotlib.pyplot as plt
 
-from utility import read_complex_volume, get_volume_paths
+from utility import read_complex_volume, get_volume_paths, train_std
 from FieldEstimator.field_estimator import estimate_delta_omega
 
 class SimulatedData(Dataset):
@@ -44,11 +44,11 @@ class Images(Dataset):
     
 
 class Complex_Volumes(Dataset):
-    def __init__(self, mode = "test", cropped = "False"):
+    def __init__(self, mode = "test", cropped = True):
         
-        volume_paths = sorted(get_volume_paths(".Data/invivo/"))
-        assert len(volume_paths) == 7
-        self.volume_paths = volume_paths[-5:] if mode == 'test' else volume_paths[:-5]
+        volume_paths = sorted(get_volume_paths("../data/invivo/"))
+        assert len(volume_paths) == 47
+        self.volume_paths = volume_paths[-7:] if mode == 'test' else volume_paths[:-7]
         self.cropped = cropped
         self.n_vols = len(self.volume_paths)
 
@@ -59,16 +59,20 @@ class Complex_Volumes(Dataset):
         vol_path = self.volume_paths[idx]
         vol = read_complex_volume(vol_path + "/")
         vol_tensor = torch.tensor(vol, dtype=torch.float32)
-        if self.cropped: vol_tensor = vol_tensor[:, :, 32:224, 85:181]
+        if self.cropped: vol_tensor = vol_tensor[:, 5:-5, 32:224, 85:181]
         c_data = vol_tensor[:8, :, :, :] + 1j * vol_tensor[8:, :, :, :]
-        return (c_data.real / 3.5043e-05) + 1j * (c_data.imag / 3.4269e-05)
+        return (c_data.real / train_std) + 1j * (c_data.imag / train_std)
     
 class Voxel_Cube(Dataset):
     def __init__(self, size):
         vol_path = get_volume_paths("../data/invivo/")[20]
         vol = read_complex_volume(vol_path + "/")
         cropped = torch.tensor(vol, dtype=torch.float32)[:, :, 32:224, 85:181] # 192, 96 
-        self.vol = cropped[:8, :, :, :] / 3.5043e-05 + 1j * cropped[8:, :, :, :] / 3.4269e-05
+
+        # self.vol = cropped[:8, :, :, :] / 3.5043e-05 + 1j * cropped[8:, :, :, :] / 3.4269e-05
+        tm = cropped[:8, :, :, :] + 1j * cropped[8:, :, :, :]
+        self.vol = tm / tm[0:1, :, :, :]
+
         self.B0 = estimate_delta_omega(self.vol.unsqueeze(0))[0]
         self.n_voxels = 190 * 94 * 20
         self.size = min(size, self.n_voxels)

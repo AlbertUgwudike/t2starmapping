@@ -7,6 +7,10 @@ from scipy.optimize import least_squares
 
 ep = 1e-11
 
+# standard deviation of the training set
+# output of 'python3 -m Data distributions'
+train_std = 3.3163e-05
+
 # inclusive range 
 def irange(start, stop, n, array, arange):
     if start == stop: return array([start])
@@ -32,7 +36,8 @@ def col_vectors(arr):
 def safe_div(a, b): return np.divide(a, b, out=np.zeros_like(a), where=b!=0)
 
 def arlo(vol, vol_t, n = 4, M0_n = 2):
-    factor = 0.005 / 3
+    delta_t = vol_t[0, 1, 0, 0, 0] - vol_t[0, 0, 0, 0, 0]
+    factor = delta_t / 3
     integrated = factor * (vol[:, :(n - 2), :, :, :] + 4 * vol[:, 1:(n-1), :, :, :] + vol[:, 2:n, :, :, :])
     differentiated = vol[:, :(n - 2), :, :, :] - vol[:, 2:n, :, :, :]
     dividend = (integrated ** 2).sum(1) + factor * (integrated * differentiated).sum(1)
@@ -50,12 +55,24 @@ def mag(img):
     return torch.sqrt(torch.pow(real, 2) + torch.pow(imag, 2))
 
 def read_complex_volume(prefix):
+    # e.g. dims = [256, 256, 32, 8]
     dims = list(map(int, open(prefix + "images.hdr").readlines()[1].strip().split(" ")))[:-1]
-    n = 2 * np.prod(dims)
+
+    # double as we have real and imaginary daa
+    n = 2 * np.prod(dims) 
+
     data = np.fromfile(prefix + "images.cfl", dtype=np.single)
-    real = data[np.arange(0, n, 2)].reshape(dims[::-1])[:, 5:-5, :, :]
-    imag = data[np.arange(1, n, 2)].reshape(dims[::-1])[:, 5:-5, :, :]
+
+    # even indices are real 
+    real = data[np.arange(0, n, 2)].reshape(dims[::-1])
+
+    # odd indices are imaginary
+    imag = data[np.arange(1, n, 2)].reshape(dims[::-1])
+
     return np.concatenate((real, imag), axis=0)
+
+    # alternatively
+    # return real + 1j * imag
 
 
 def get_dirs(parent):

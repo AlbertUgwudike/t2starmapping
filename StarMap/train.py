@@ -4,7 +4,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 
 from Data.DataLoader import Complex_Volumes
-from .StarMap import StarMap
+from .StarMap import StarMap, load_starmap
 from Simulator.analytic_simulator import simulate_volume
 from FieldEstimator.field_estimator import estimate_delta_omega
 
@@ -20,12 +20,12 @@ def train():
 
     device = torch.device('cuda' if cuda_available else 'cpu')
 
-    starmap = StarMap().to(device)
+    flatmap = StarMap().to(device)
 
     criterion = nn.MSELoss().to(device)
 
-    optimizer = torch.optim.Adam(starmap.parameters(), lr=0.1)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=1)
+    optimizer = torch.optim.Adam(flatmap.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5)
 
     num_epochs = 1000
 
@@ -36,43 +36,50 @@ def train():
 
     for epoch in range(num_epochs):
             
-        starmap.train()
+        flatmap.train()
 
-        for img in data_loader:
-            s_img = torch.cat((img.real, img.imag), 1).to(device)
-            param_map = starmap(s_img)
-            B0_offset_map, init_phase_map = estimate_delta_omega(img)
+        for vol in data_loader:
+            vol = vol.to(device)
+            s_img = torch.cat((vol.real, vol.imag), 1).to(device)
+            param_map = flatmap(s_img)
+            B0_offset_map, init_phase_map = estimate_delta_omega(vol)
             sim_img = simulate_volume(param_map, B0_offset_map, init_phase_map, device=device)
-            s_sim_img = torch.cat((sim_img.real, sim_img.imag), 1).to(device)
-            curr_loss = criterion(s_img, s_sim_img) 
+
+            diff = (vol - sim_img).abs()
+            curr_loss = criterion(diff, torch.zeros(diff.shape, dtype=torch.float32).to(device)) 
+
             optimizer.zero_grad()
             curr_loss.backward()
             optimizer.step()
         
         train_losses.append(curr_loss.data.item())
         
-        if epoch % 50 == 49: scheduler.step()
+        # if train_losses[-1] < 0.15 and scheduler.get_lr() == 0.05: 
+        #     scheduler.step()
 
-        starmap.eval()
+        flatmap.eval()
 
         with torch.no_grad():
-            _, img =  next(enumerate(DataLoader(test_dataset, batch_size=3)))
-            s_img = torch.cat((img.real, img.imag), 1).to(device)
-            param_map = starmap(s_img)
-            B0_offset_map, init_phase_map = estimate_delta_omega(img)
+            _, vol =  next(enumerate(DataLoader(test_dataset, batch_size=7)))
+            vol = vol.to(device)
+            s_img = torch.cat((vol.real, vol.imag), 1).to(device)
+            param_map = flatmap(s_img)
+            B0_offset_map, init_phase_map = estimate_delta_omega(vol)
             sim_img = simulate_volume(param_map, B0_offset_map, init_phase_map, device=device)
-            s_sim_img = torch.cat((sim_img.real, sim_img.imag), 1).to(device)
-            loss = criterion(s_img, s_sim_img) 
+
+            diff = (vol - sim_img).abs()
+            loss = criterion(diff, torch.zeros(diff.shape, dtype=torch.float32).to(device)) 
+
             validation_losses.append(loss.data.item())
         
 
-        save_model(starmap, train_losses, validation_losses, "./models/starmap1.pt")
+        save_model(flatmap, train_losses, validation_losses, "./trained_models/starmap1.pt")
 
         print(f"Epoch: {epoch}, Train Loss: {train_losses[-1]}, Validation Loss: {validation_losses[-1]}")
 
 
-def save_model(starmap, train_losses, validation_losses, filename):
-    torch.save(starmap.state_dict(), filename)
+def save_model(flatmap, train_losses, validation_losses, filename):
+    torch.save(flatmap.state_dict(), filename)
     losses = torch.tensor([train_losses, validation_losses]).T
     pd.DataFrame(data = losses, columns=["Train Loss", "Validation Loss"]).to_csv("./losses/starmap1_loss.csv")
     print(f"Saved current model parameters in {filename}")

@@ -19,10 +19,10 @@ def loss_curve():
     plt.show()
 
 
-def pixel_demo():
-    starmap = load_starmap("./trained_models/StarMap.pt")
+def pixel_demo_big():
+    starmap = load_starmap("./trained_models/starmap1.pt")
     slice_idx = 15
-    vol = Complex_Volumes()[2].unsqueeze(0)
+    vol = Complex_Volumes()[3].unsqueeze(0)
     param_map = starmap(torch.cat((vol.real, vol.imag), 1))
     B0_offset, initial_phase = estimate_delta_omega(vol)
     sim_vol = simulate_volume(param_map, B0_offset, initial_phase)
@@ -32,7 +32,8 @@ def pixel_demo():
     _, ax = plt.subplots(2, 2)
 
     for i, (x, y) in enumerate(points):
-        ax[i // 2][i % 2].plot(t, sim_vol[0, :, slice_idx, x, y].abs().detach(), c='green')
+        ax[i // 2][i % 2].set_ylim(0, 0.00012)
+        # ax[i // 2][i % 2].plot(t, sim_vol[0, :, slice_idx, x, y].abs().detach(), c='green')
         ax[i // 2][i % 2].plot(t, vol[0, :, slice_idx, x, y].abs().detach(), c='red')
     
     plt.show()

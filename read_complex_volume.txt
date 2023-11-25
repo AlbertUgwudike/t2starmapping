@@ -1,0 +1,21 @@
+import numpy as np
+
+def read_complex_volume(prefix):
+    # e.g. dims = [256, 256, 32, 8]
+    dims = list(map(int, open(prefix + "images.hdr").readlines()[1].strip().split(" ")))[:-1]
+
+    # double as we have real and imaginary daa
+    n = 2 * np.prod(dims) 
+
+    data = np.fromfile(prefix + "images.cfl", dtype=np.single)
+
+    # even indices are real 
+    real = data[np.arange(0, n, 2)].reshape(dims[::-1])
+
+    # odd indices are imaginary
+    imag = data[np.arange(1, n, 2)].reshape(dims[::-1])
+
+    return np.concatenate((real, imag), axis=0)
+
+    # alternatively
+    # return real + 1j * imag

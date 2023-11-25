@@ -1,4 +1,5 @@
 import torch
+from utility import ep
 
 sobel3D = torch.tensor([
     [ [-1, -2, -1], [-2, -4, -2], [-1, -2, -1] ],
@@ -23,3 +24,15 @@ dnSobel3D = torch.tensor([
     [ [ 0,  0,  0], [ 0,  0,  0], [ 0,  0,  0] ],
     [ [ 0,  0,  0], [ 0,  0,  0], [ 0,  0,  0] ],
 ], dtype=torch.float32) / 64
+
+weight3D_ = torch.tensor([
+    [ [ 1,  2,  1], [ 2,  4,  2], [ 1,  2,  1] ],
+    [ [ 2,  4,  2], [ 4,  8,  4], [ 2,  4,  2] ],
+    [ [ 1,  2,  1], [ 2,  4,  2], [ 1,  2,  1] ],
+], dtype=torch.float32) / 64
+
+weight3D = torch.tensor([
+    [ [ 4,  2,  4], [ 2,  1,  2], [ 4,  2,  4] ],
+    [ [ 2,  1,  2], [ 1,  0.001,  1], [ 2,  1,  2] ],
+    [ [ 4,  2,  4], [ 2,  1,  2], [ 4,  2,  4] ],
+], dtype=torch.float32)
